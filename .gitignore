@@ -4,6 +4,9 @@
 # Output files (generated content)
 output/
 
+# Transcript cache
+cache/
+
 # Python
 __pycache__/
 *.py[cod]

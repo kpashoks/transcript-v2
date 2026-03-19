@@ -95,7 +95,27 @@ You only need **one** of the AI analysis keys (Anthropic or OpenAI). Set `AI_PRO
 
 ---
 
-## Usage
+## Running the web UI
+
+The easiest way to use the tool is through the browser interface:
+
+```bash
+python app.py
+```
+
+Then open **http://localhost:5000** in your browser. You will see:
+
+- A **URL tab** — paste any YouTube or podcast link
+- A **Local file tab** — drag and drop or browse for an audio/video file
+- Optional **Context** field — describe who is speaking and what the conversation is about
+- Optional **Speaker count** — help the transcriber detect the right number of speakers
+- A **Force re-transcribe** checkbox — skip the cache if you want a fresh upload
+
+Progress streams live in the browser as each step completes. When done, the summary renders inline and download buttons appear for all four output files.
+
+---
+
+## Command-line usage
 
 ### Analyze a YouTube video
 
@@ -162,6 +182,16 @@ The program uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for downloading, whi
 
 ---
 
+## Transcript caching
+
+Every transcription result is cached locally in the `cache/` folder. If you run the same URL or file a second time, the program loads the cached transcript and skips the AssemblyAI upload entirely — saving both time and money.
+
+- The cache key for **URLs** is a SHA-256 hash of the URL string.
+- The cache key for **local files** is a SHA-256 hash of the file content.
+- To bypass the cache, pass `--no-cache` on the command line or tick the checkbox in the web UI.
+
+---
+
 ## How it works
 
 ```
@@ -199,11 +229,14 @@ The program uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for downloading, whi
 
 | File | Role |
 |---|---|
-| `main.py` | Entry point. Parses arguments, orchestrates the four steps, saves output. |
+| `main.py` | CLI entry point. Parses arguments, orchestrates the four steps, saves output. |
+| `app.py` | Flask web server. Runs jobs in background threads and streams progress to the browser via Server-Sent Events. |
+| `templates/index.html` | Single-page web UI — URL/file input, live progress log, rendered summary, and download buttons. |
 | `downloader.py` | Downloads audio from any URL via yt-dlp and converts to MP3. |
 | `transcriber.py` | Sends audio to AssemblyAI and returns timestamped, speaker-labeled utterances. |
 | `analyzer.py` | Identifies speaker names and generates the structured summary using Claude or GPT-4o. Handles long transcripts via map→merge chunking. |
 | `formatter.py` | Converts raw utterances and AI-generated Markdown into clean `.md` and `.txt` output files. |
+| `cache.py` | Saves and loads transcription results by content hash so repeated runs skip the AssemblyAI upload. |
 | `config.py` | Loads API keys and settings from `.env`. |
 
 ### Handling long recordings

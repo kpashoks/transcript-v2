@@ -3,3 +3,4 @@ anthropic
 openai
 yt-dlp
 python-dotenv
+flask

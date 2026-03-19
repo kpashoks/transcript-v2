@@ -4,6 +4,7 @@ transcript-v2 — Transcribe, analyze, and summarize audio/video content.
 
 Handles YouTube URLs, podcast URLs, and local audio/video files.
 Uses AssemblyAI for speaker-diarized transcription and Claude for analysis.
+Transcripts are cached locally so re-running the same file skips the upload.
 
 USAGE
 -----
@@ -17,7 +18,10 @@ USAGE
   python main.py "https://..." --speakers 3
 
   # With optional context to improve speaker identification and summary:
-  python main.py "https://..." --context "Molly is a Stripe recruiter. Ashok is the candidate receiving interview feedback."
+  python main.py "https://..." --context "Molly is a Stripe recruiter. Ashok is the candidate."
+
+  # Force re-transcribe even if cached:
+  python main.py "https://..." --no-cache
 
   # Custom output directory:
   python main.py "https://..." --output-dir /path/to/folder
@@ -63,7 +67,6 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Optional background context about the recording. "
             "Describe who the speakers are, their roles, and what the conversation is about. "
-            "This improves speaker identification and summary quality. "
             'Example: "Molly is a Stripe recruiter. Ashok is the candidate receiving interview feedback."'
         ),
     )
@@ -73,6 +76,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         metavar="DIR",
         help="Directory for output files. Defaults to transcript-v2/output/.",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Skip the transcript cache and re-upload to AssemblyAI even if already processed.",
     )
     return parser.parse_args()
 
@@ -84,9 +92,7 @@ def is_url(source: str) -> bool:
 def main() -> None:
     args = parse_args()
 
-    # Lazy import so config errors surface cleanly
     from config import OUTPUT_DIR
-
     output_dir = args.output_dir or OUTPUT_DIR
 
     # ------------------------------------------------------------------ #
@@ -102,11 +108,13 @@ def main() -> None:
             print(f"      Title : {title}")
             print(f"      File  : {audio_path.name}")
 
-            # ---------------------------------------------------------- #
-            # Steps 2–4 run while the temp audio file still exists        #
-            # ---------------------------------------------------------- #
             utterances, speaker_names, summary = _process(
-                audio_path, title, args.speakers, args.context
+                audio_path=audio_path,
+                title=title,
+                num_speakers=args.speakers,
+                context=args.context,
+                use_cache=not args.no_cache,
+                cache_source=args.source,   # key URLs by their URL string
             )
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -120,7 +128,12 @@ def main() -> None:
         title = audio_path.stem
         print(f"\n[1/4] Using local file: {audio_path.name}")
         utterances, speaker_names, summary = _process(
-            audio_path, title, args.speakers, args.context
+            audio_path=audio_path,
+            title=title,
+            num_speakers=args.speakers,
+            context=args.context,
+            use_cache=not args.no_cache,
+            cache_source=None,              # key local files by content hash
         )
 
     # ------------------------------------------------------------------ #
@@ -139,23 +152,50 @@ def main() -> None:
 
 
 def _process(
-    audio_path: Path, title: str, num_speakers: int | None, context: str | None
+    audio_path: Path,
+    title: str,
+    num_speakers: int | None,
+    context: str | None,
+    use_cache: bool,
+    cache_source: str | None,   # URL string, or None (→ hash file content)
 ) -> tuple[list[dict], dict[str, str], str]:
     """Transcribe → identify speakers → summarize. Returns raw data."""
+    import cache as cache_mod
 
-    # Step 2 — Transcribe
+    # ------------------------------------------------------------------ #
+    # Step 2 — Transcribe (or load from cache)                            #
+    # ------------------------------------------------------------------ #
     print("\n[2/4] Transcribing with speaker diarization...")
-    print("      (This can take several minutes for long recordings.)")
-    from transcriber import transcribe
 
-    utterances = transcribe(audio_path, num_speakers=num_speakers)
-    n_speakers = len(set(u["speaker"] for u in utterances))
-    print(f"      Done — {len(utterances):,} utterances, {n_speakers} speakers detected.")
+    key = (
+        cache_mod.cache_key_for_url(cache_source)
+        if cache_source
+        else cache_mod.cache_key_for_file(audio_path)
+    )
+
+    cached = cache_mod.load(key) if use_cache else None
+
+    if cached:
+        utterances = cached["utterances"]
+        cached_title = cached.get("title", title)
+        if cached_title and cached_title != audio_path.stem:
+            title = cached_title
+        print(f"      Loaded from cache — {len(utterances):,} utterances.")
+    else:
+        print("      (This can take several minutes for long recordings.)")
+        from transcriber import transcribe
+        utterances = transcribe(audio_path, num_speakers=num_speakers)
+        n_speakers = len(set(u["speaker"] for u in utterances))
+        print(f"      Done — {len(utterances):,} utterances, {n_speakers} speakers detected.")
+        cache_mod.save(key, utterances, title)
+        print("      Transcript saved to cache.")
 
     if context:
         print(f"      Context: {context}")
 
-    # Step 3 — Identify speakers + summarize
+    # ------------------------------------------------------------------ #
+    # Step 3 — Identify speakers + summarize                              #
+    # ------------------------------------------------------------------ #
     print("\n[3/4] Analyzing with Claude...")
     from analyzer import identify_speakers, summarize
 

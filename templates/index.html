@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>transcript-v2</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+    header span { font-size: 0.8rem; color: #9ca3af; margin-top: 2px; }
+
+    .page { max-width: 860px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+    /* ── Cards ─────────────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #6b7280;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── Source tabs ───────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: .6rem 1rem;
+      font-size: .875rem;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      background: #fff;
+      color: #6b7280;
+      transition: background .15s, color .15s;
+    }
+    .tab-btn.active { background: #1a1a2e; color: #fff; }
+    .tab-btn:first-child { border-radius: 7px 0 0 7px; }
+    .tab-btn:last-child  { border-radius: 0 7px 7px 0; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Form elements ─────────────────────────────────────────────── */
+    label { display: block; font-size: .875rem; font-weight: 500; margin-bottom: .35rem; }
+    .hint { font-size: .78rem; color: #9ca3af; margin-top: .25rem; }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    textarea,
+    input[type="file"] {
+      width: 100%;
+      padding: .6rem .85rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-family: inherit;
+      color: #1a1a2e;
+      background: #fafafa;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    input:focus, textarea:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+    .field { margin-top: 1rem; }
+    .field:first-child { margin-top: 0; }
+
+    /* ── Drop zone ─────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-zone.over { border-color: #6366f1; background: #f5f3ff; }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .drop-zone p { font-size: .875rem; color: #6b7280; }
+    .drop-zone strong { color: #1a1a2e; }
+    #file-name { margin-top: .75rem; font-size: .825rem; color: #6366f1; font-weight: 500; }
+
+    /* ── Submit button ─────────────────────────────────────────────── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.75rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      margin-top: 1.5rem;
+    }
+    .btn-primary:hover  { background: #4f46e5; }
+    .btn-primary:active { transform: scale(.98); }
+    .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .6rem 1.25rem;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: .85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: #e5e7eb; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-top: 1rem;
+      font-size: .85rem;
+      color: #6b7280;
+    }
+    .checkbox-row input { width: auto; }
+
+    /* ── Progress panel ────────────────────────────────────────────── */
+    #progress-panel { display: none; }
+    .progress-log {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: .8rem;
+      color: #94a3b8;
+      max-height: 300px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+    .log-line { display: flex; gap: .6rem; align-items: flex-start; }
+    .log-line.done-line  { color: #4ade80; }
+    .log-line.error-line { color: #f87171; }
+    .log-dot { margin-top: .2rem; flex-shrink: 0; }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #4f46e5;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+      margin-top: .1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results panel ─────────────────────────────────────────────── */
+    #result-panel { display: none; }
+
+    .speakers-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .chip {
+      background: #ede9fe;
+      color: #4f46e5;
+      border-radius: 20px;
+      padding: .25rem .75rem;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+
+    .download-grid { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.5rem; }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .45rem .9rem;
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .dl-btn:hover { opacity: .8; }
+    .dl-md   { background: #dbeafe; color: #1d4ed8; }
+    .dl-txt  { background: #dcfce7; color: #15803d; }
+
+    /* ── Summary render ────────────────────────────────────────────── */
+    .summary-box {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1.5rem;
+      font-size: .9rem;
+      line-height: 1.75;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .summary-box h1, .summary-box h2 { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: #1a1a2e; }
+    .summary-box h2:first-child { margin-top: 0; }
+    .summary-box h3 { font-size: .9rem; font-weight: 600; margin: 1rem 0 .3rem; }
+    .summary-box p  { margin-bottom: .75rem; }
+    .summary-box ul, .summary-box ol { padding-left: 1.5rem; margin-bottom: .75rem; }
+    .summary-box li { margin-bottom: .4rem; }
+    .summary-box strong { color: #1a1a2e; }
+    .summary-box hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+
+    /* ── Error box ─────────────────────────────────────────────────── */
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 1rem;
+      color: #b91c1c;
+      font-size: .875rem;
+      display: none;
+    }
+
+    /* ── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .row { grid-template-columns: 1fr; }
+      header { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>transcript-v2</h1>
+    <span>Transcribe · Analyze · Summarize</span>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── Input form ──────────────────────────────────────────────────── -->
+  <div class="card" id="form-card">
+    <div class="card-title">Source</div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('url', this)">🔗 URL</button>
+      <button class="tab-btn"        onclick="switchTab('file', this)">📁 Local file</button>
+    </div>
+
+    <!-- URL tab -->
+    <div class="tab-pane active" id="tab-url">
+      <div class="field">
+        <label for="url-input">YouTube, podcast, or any direct audio/video URL</label>
+        <input type="url" id="url-input" placeholder="https://www.youtube.com/watch?v=…" />
+      </div>
+    </div>
+
+    <!-- File tab -->
+    <div class="tab-pane" id="tab-file">
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-icon">🎧</div>
+        <p><strong>Drop a file here</strong> or click to browse</p>
+        <p style="margin-top:.3rem">MP3 · MP4 · MKV · M4A · WAV · WEBM</p>
+        <input type="file" id="file-input"
+               accept=".mp3,.mp4,.mkv,.m4a,.wav,.webm,.ogg,.flac,.aac"
+               onchange="onFileSelected(this)" />
+        <div id="file-name"></div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="card-title" style="margin-top:1.75rem">Options <span style="font-weight:400;text-transform:none">(all optional)</span></div>
+
+    <div class="field">
+      <label for="context-input">Context — who is speaking and what is the conversation about?</label>
+      <textarea id="context-input"
+        placeholder="e.g. Dwarkesh Podcast. Dwarkesh Patel is the host. Dylan Patel (SemiAnalysis) is the guest, discussing AI compute bottlenecks."></textarea>
+      <div class="hint">Providing context significantly improves speaker identification and summary quality.</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="speakers-input">Number of speakers</label>
+        <input type="number" id="speakers-input" placeholder="Auto-detect" min="1" max="10" />
+        <div class="hint">Leave blank to auto-detect.</div>
+      </div>
+      <div class="field" style="display:flex;flex-direction:column;justify-content:flex-end">
+        <div class="checkbox-row">
+          <input type="checkbox" id="no-cache" />
+          <label for="no-cache" style="margin:0;font-weight:400">
+            Force re-transcribe (ignore cache)
+          </label>
+        </div>
+        <div class="hint" style="margin-top:.4rem">
+          Re-runs on the same file use the cached transcript by default.
+        </div>
+      </div>
+    </div>
+
+    <div id="form-error" class="error-box" style="margin-top:1rem"></div>
+
+    <button class="btn-primary" id="submit-btn" onclick="startAnalysis()">
+      ▶ Analyze
+    </button>
+  </div>
+
+  <!-- ── Progress ────────────────────────────────────────────────────── -->
+  <div class="card" id="progress-panel">
+    <div class="card-title">Progress</div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+
+  <!-- ── Results ─────────────────────────────────────────────────────── -->
+  <div class="card" id="result-panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+      <div class="card-title" style="margin:0" id="result-title">Results</div>
+      <button class="btn-secondary" onclick="resetUI()">↩ Analyze another</button>
+    </div>
+
+    <div class="speakers-chips" id="speakers-chips"></div>
+    <div class="download-grid" id="download-grid"></div>
+
+    <div class="card-title">Summary</div>
+    <div class="summary-box" id="summary-box"></div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let activeTab = 'url';
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── File drop / select ─────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    document.getElementById('file-input').files = e.dataTransfer.files;
+    showFileName(f.name);
+  }
+});
+
+function onFileSelected(input) {
+  if (input.files[0]) showFileName(input.files[0].name);
+}
+
+function showFileName(name) {
+  document.getElementById('file-name').textContent = '📎 ' + name;
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────
+async function startAnalysis() {
+  const errBox = document.getElementById('form-error');
+  errBox.style.display = 'none';
+
+  const formData = new FormData();
+
+  if (activeTab === 'url') {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { showFormError('Please enter a URL.'); return; }
+    formData.append('url', url);
+  } else {
+    const fileInput = document.getElementById('file-input');
+    if (!fileInput.files.length) { showFormError('Please select a file.'); return; }
+    formData.append('file', fileInput.files[0]);
+  }
+
+  const context  = document.getElementById('context-input').value.trim();
+  const speakers = document.getElementById('speakers-input').value.trim();
+  const noCache  = document.getElementById('no-cache').checked;
+
+  if (context)  formData.append('context', context);
+  if (speakers) formData.append('speakers', speakers);
+  if (noCache)  formData.append('no_cache', '1');
+
+  // Show progress panel, hide form card
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('progress-panel').style.display = 'block';
+  document.getElementById('result-panel').style.display   = 'none';
+  document.getElementById('progress-log').innerHTML = '';
+
+  logLine('Starting analysis…', 'normal');
+
+  try {
+    const res  = await fetch('/analyze', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.error) { showFormError(data.error); return; }
+    listenProgress(data.job_id);
+  } catch (e) {
+    showFormError('Failed to connect to server: ' + e.message);
+    document.getElementById('submit-btn').disabled = false;
+  }
+}
+
+// ── SSE listener ───────────────────────────────────────────────────────────
+function listenProgress(jobId) {
+  const es = new EventSource('/progress/' + jobId);
+
+  es.onmessage = e => {
+    const event = JSON.parse(e.data);
+
+    if (event.type === 'ping') return;
+
+    if (event.type === 'progress') {
+      logLine(event.message, 'normal');
+    }
+
+    if (event.type === 'done') {
+      es.close();
+      logLine('All done!', 'done');
+      showResult(event.result);
+    }
+
+    if (event.type === 'error') {
+      es.close();
+      logLine('Error: ' + event.message, 'error');
+      document.getElementById('submit-btn').disabled = false;
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    logLine('Connection lost. Check the server.', 'error');
+    document.getElementById('submit-btn').disabled = false;
+  };
+}
+
+// ── Render results ─────────────────────────────────────────────────────────
+function showResult(result) {
+  // Title
+  document.getElementById('result-title').textContent = result.title || 'Results';
+
+  // Speaker chips
+  const chips = document.getElementById('speakers-chips');
+  chips.innerHTML = '';
+  for (const [label, name] of Object.entries(result.speakers || {})) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = name + (name !== 'Speaker ' + label ? '  (' + label + ')' : '');
+    chips.appendChild(chip);
+  }
+
+  // Download buttons
+  const grid = document.getElementById('download-grid');
+  grid.innerHTML = '';
+  for (const fname of (result.files || [])) {
+    const ext  = fname.endsWith('.md') ? 'md' : 'txt';
+    const kind = fname.includes('summary') ? 'Summary' : 'Transcript';
+    const a    = document.createElement('a');
+    a.href      = '/download/' + encodeURIComponent(fname);
+    a.download  = fname;
+    a.className = 'dl-btn dl-' + ext;
+    a.innerHTML = (ext === 'md' ? '📄' : '📝') + ' ' + kind + ' .' + ext;
+    grid.appendChild(a);
+  }
+
+  // Render markdown summary
+  document.getElementById('summary-box').innerHTML =
+    marked.parse(result.summary_md || '');
+
+  // Show result panel
+  document.getElementById('result-panel').style.display = 'block';
+  document.getElementById('result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('submit-btn').disabled = false;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function logLine(msg, type) {
+  const log  = document.getElementById('progress-log');
+  const line = document.createElement('div');
+  line.className = 'log-line' +
+    (type === 'done'  ? ' done-line'  : '') +
+    (type === 'error' ? ' error-line' : '');
+
+  const dot = document.createElement('span');
+  dot.className = 'log-dot';
+  dot.textContent = type === 'done' ? '✓' : type === 'error' ? '✗' : '›';
+
+  const text = document.createElement('span');
+  text.textContent = msg;
+
+  line.appendChild(dot);
+  line.appendChild(text);
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showFormError(msg) {
+  const box = document.getElementById('form-error');
+  box.textContent = msg;
+  box.style.display = 'block';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('progress-panel').style.display = 'none';
+}
+
+function resetUI() {
+  document.getElementById('result-panel').style.display   = 'none';
+  document.getElementById('progress-panel').style.display = 'none';
+  document.getElementById('form-error').style.display     = 'none';
+  document.getElementById('url-input').value     = '';
+  document.getElementById('context-input').value = '';
+  document.getElementById('speakers-input').value = '';
+  document.getElementById('file-name').textContent = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('no-cache').checked = false;
+  document.getElementById('submit-btn').disabled = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
