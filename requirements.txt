@@ -1,0 +1,5 @@
+assemblyai
+anthropic
+openai
+yt-dlp
+python-dotenv
